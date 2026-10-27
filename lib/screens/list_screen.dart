@@ -51,27 +51,37 @@ class _ListScreenState extends State<ListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('BookShelf'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: Gap.sm),
+            child: FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(minimumSize: const Size(64, 40)),
+              onPressed: () => context.read<AuthService>().signOut(),
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+            ),
+          ),
+        ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
+          preferredSize: const Size.fromHeight(44),
           child: Container(
             color: scheme.primaryContainer,
             padding: const EdgeInsets.symmetric(horizontal: Gap.md),
-            height: 48,
+            height: 44,
             child: Row(
               children: [
                 Icon(Icons.account_circle, color: scheme.onPrimaryContainer),
                 const SizedBox(width: Gap.sm),
-                Expanded(
-                  child: Text(
-                    auth.user?.email ?? '',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: scheme.onPrimaryContainer),
+                // Shrinks a long e-mail to fit instead of cutting it off.
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      auth.user?.email ?? '',
+                      style: TextStyle(color: scheme.onPrimaryContainer),
+                    ),
                   ),
-                ),
-                TextButton.icon(
-                  onPressed: () => context.read<AuthService>().signOut(),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
                 ),
               ],
             ),
