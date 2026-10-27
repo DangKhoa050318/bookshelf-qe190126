@@ -1,0 +1,60 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(data) {
+      return data.userId == request.auth.uid;
+    }
+
+    // Document id of a book: sha256 of "<uid>|<title>|<author>", with title
+    // and author trimmed and lower-cased. One person + title + author always
+    // gets the same id, so a second copy (any letter case) cannot be created.
+    // Must match Book.keyFor() in lib/models/book.dart.
+    function bookKey(data) {
+      return hashing.sha256(
+        request.auth.uid + '|' + data.title.trim().lower() + '|' + data.author.trim().lower()
+      ).toHexString().lower();
+    }
+
+    function validBook(data, bookId) {
+      return data.keys().hasAll(['userId', 'title', 'author', 'genre', 'status', 'createdAt'])
+        && owns(data)
+        && data.title is string
+        && data.title.trim().size() > 0
+        && data.title.size() <= 100
+        && data.author is string
+        && data.author.trim().size() > 0
+        && data.author.size() <= 60
+        && data.genre in ['Fiction', 'Non-Fiction', 'Academic', 'Other']
+        && data.status in ['To Read', 'Reading', 'Finished']
+        && (!('rating' in data) || data.rating == null
+            || (data.rating is int && data.rating >= 0 && data.rating <= 5))
+        && (!('favorite' in data) || data.favorite is bool)
+        && (!('notes' in data) || data.notes == null
+            || (data.notes is string && data.notes.size() <= 300))
+        && (!('id' in data) || data.id == bookId)
+        && bookId == bookKey(data);
+    }
+
+    match /books/{bookId} {
+      allow read: if signedIn() && owns(resource.data);
+
+      allow create: if signedIn() && validBook(request.resource.data, bookId);
+
+      // Editing keeps the same createdAt. Saving a "new" book over an
+      // existing one (a duplicate title + author) brings a new createdAt
+      // and is refused here.
+      allow update: if signedIn()
+        && owns(resource.data)
+        && validBook(request.resource.data, bookId)
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if signedIn() && owns(resource.data);
+    }
+  }
+}
